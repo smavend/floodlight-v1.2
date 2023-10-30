@@ -549,10 +549,33 @@ IFloodlightModule {
 					IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
 			decision.addToContext(cntx);
 		} else {
-			decision = new RoutingDecision(sw.getId(), inPort,
-					IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
-					IRoutingDecision.RoutingAction.DROP);
-			decision.addToContext(cntx);
+			if (eth.getEtherType().getValue() == Ethernet.TYPE_IPv4) {
+				IPv4 ipv4 = (IPv4) eth.getPayload();
+				if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
+					TCP tcp = (TCP) ipv4.getPayload();
+					if (tcp.getDestinationPort().equals(TransportPort.of(22))) {
+						decision = new RoutingDecision(sw.getId(), inPort,
+								IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
+								IRoutingDecision.RoutingAction.DROP);
+						decision.addToContext(cntx);
+					} else {
+						decision = new RoutingDecision(sw.getId(), inPort,
+								IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
+								IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
+						decision.addToContext(cntx);
+					}
+				} else {
+					decision = new RoutingDecision(sw.getId(), inPort,
+							IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
+							IRoutingDecision.RoutingAction.DROP);
+					decision.addToContext(cntx);
+				}
+			} else {
+				decision = new RoutingDecision(sw.getId(), inPort,
+						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
+						IRoutingDecision.RoutingAction.DROP);
+				decision.addToContext(cntx);
+			}
 		}
 
 		return Command.CONTINUE;
