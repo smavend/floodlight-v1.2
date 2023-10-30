@@ -43,6 +43,8 @@ import net.floodlightcontroller.topology.NodePortTuple;
 
 public class StatisticsCollector implements IFloodlightModule, IStatisticsService {
 	private static final Logger log = LoggerFactory.getLogger(StatisticsCollector.class);
+	private static int PortTxThreshold = 0;
+	private static int PortRxThreshold = 0;
 
 	private static IOFSwitchService switchService;
 	private static IThreadPoolService threadPoolService;
@@ -223,6 +225,21 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 			}
 		}
 		log.info("Port statistics collection interval set to {}s", portStatsInterval);
+		if (config.containsKey("PortTxThreshold")) {
+			try {
+				PortTxThreshold = Integer.parseInt(config.get("PortTxThreshold").trim());
+			} catch (Exception e) {
+				log.error("Could not parse 'PortTxThreshold'. Using default of {}", PortTxThreshold);
+			}
+		}
+
+		if (config.containsKey("PortRxThreshold")) {
+			try {
+				PortRxThreshold = Integer.parseInt(config.get("PortRxThreshold").trim());
+			} catch (Exception e) {
+				log.error("Could not parse 'PortRxThreshold'. Using default of {}", PortRxThreshold);
+			}
+		}
 	}
 
 	@Override
