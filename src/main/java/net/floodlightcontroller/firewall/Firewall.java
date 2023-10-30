@@ -529,7 +529,7 @@ IFloodlightModule {
 	 * Checks whether an IP address is a broadcast address or not (determines
 	 * using subnet mask)
 	 * 
-	 * @param IPAddress
+	 //* @param IPAddress
 	 *            the IP address to check
 	 * @return true if it is a broadcast address, false otherwise
 	 */
@@ -541,80 +541,14 @@ IFloodlightModule {
 
 	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, IRoutingDecision decision, FloodlightContext cntx) {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT);
 
-		// Allowing L2 broadcast + ARP broadcast request (also deny malformed
-		// broadcasts -> L2 broadcast + L3 unicast)
-		if (eth.isBroadcast() == true) {
-			boolean allowBroadcast = true;
-			// the case to determine if we have L2 broadcast + L3 unicast (L3 broadcast default set to /24 or 255.255.255.0)
-			// don't allow this broadcast packet if such is the case (malformed packet)
-			if ((eth.getPayload() instanceof IPv4) && !isIPBroadcast(((IPv4) eth.getPayload()).getDestinationAddress())) {
-				allowBroadcast = false;
-			}
-			if (allowBroadcast == true) {
-				if (logger.isTraceEnabled()) {
-					logger.trace("Allowing broadcast traffic for PacketIn={}", pi);
-				}
-
-				decision = new RoutingDecision(sw.getId(), inPort, 
-						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
-						IRoutingDecision.RoutingAction.MULTICAST);
-				decision.addToContext(cntx);
-			} else {
-				if (logger.isTraceEnabled()) {
-					logger.trace("Blocking malformed broadcast traffic for PacketIn={}", pi);
-				}
-
-				decision = new RoutingDecision(sw.getId(), inPort,
-						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
-						IRoutingDecision.RoutingAction.DROP);
-				decision.addToContext(cntx);
-			}
-			return Command.CONTINUE;
-		}
-		/*
-		 * ARP response (unicast) can be let through without filtering through
-		 * rules by uncommenting the code below
-		 */
-		/*
-		 * else if (eth.getEtherType() == Ethernet.TYPE_ARP) {
-		 * logger.info("allowing ARP traffic"); decision = new
-		 * FirewallDecision(IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
-		 * decision.addToContext(cntx); return Command.CONTINUE; }
-		 */
-
-		// check if we have a matching rule for this packet/flow and no decision has been made yet
-		if (decision == null) {
-			// check if the packet we received matches an existing rule
-			RuleMatchPair rmp = this.matchWithRule(sw, pi, cntx);
-			FirewallRule rule = rmp.rule;
-
-			// Drop the packet if we don't have a rule allowing or dropping it or if we explicitly drop it
-			if (rule == null || rule.action == FirewallRule.FirewallAction.DROP) {
-				decision = new RoutingDecision(sw.getId(), inPort, 
-						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE), 
-						IRoutingDecision.RoutingAction.DROP);
-				decision.setMatch(rmp.match);
-				decision.addToContext(cntx);
-				if (logger.isTraceEnabled()) {
-					if (rule == null) {
-						logger.trace("No firewall rule found for PacketIn={}, blocking flow", pi);
-					} else if (rule.action == FirewallRule.FirewallAction.DROP) {
-						logger.trace("Deny rule={} match for PacketIn={}", rule, pi);
-					}
-				}
-				// Found a rule and the rule is not a drop, so allow the packet
-			} else {
-				decision = new RoutingDecision(sw.getId(), inPort, 
-						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
-						IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
-				decision.setMatch(rmp.match);
-				decision.addToContext(cntx);
-				if (logger.isTraceEnabled()) {
-					logger.trace("Allow rule={} match for PacketIn={}", rule, pi);
-				}
-			}
+		if (eth.getEtherType().getValue() == Ethernet.TYPE_ARP || eth.getEtherType().getValue() == Ethernet.TYPE_IPv4) {
+			decision = new RoutingDecision(sw.getId(), inPort, IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE), IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
+			decision.addToContext(cntx);
+		} else {
+			decision = new RoutingDecision(sw.getId(), inPort, IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE), IRoutingDecision.RoutingAction.DROP);
+			decision.addToContext(cntx);
 		}
 
 		return Command.CONTINUE;
